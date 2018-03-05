@@ -1,0 +1,27 @@
+no BVH:
+[PathTracer] Input scene file: ../dae/meshedit/cow.dae
+[PathTracer] Collecting primitives... Done! (0.0006 sec)
+[PathTracer] Building BVH from 5856 primitives... Done! (0.0013 sec)
+[PathTracer] Rendering... 100%! (381.2898s)
+[PathTracer] BVH traced 480000 rays.
+[PathTracer] Averaged 5856.000000 intersection tests per ray.
+
+With BVH:
+[PathTracer] Input scene file: ../dae/meshedit/cow.dae
+[PathTracer] Collecting primitives... Done! (0.0006 sec)
+[PathTracer] Building BVH from 5856 primitives... Done! (0.0443 sec)
+[PathTracer] Rendering... 100%! (1.1945s)
+[PathTracer] BVH traced 480000 rays.
+[PathTracer] Averaged 11.890058 intersection tests per ray.
+
+Lighting Hemisphere small:
+[PathTracer] Input scene file: ../dae/sky/CBbunny.dae
+[PathTracer] Collecting primitives... Done! (0.0040 sec)
+[PathTracer] Building BVH from 28588 primitives... Done! (0.2989 sec)
+[PathTracer] Rendering... 100%! (29.0797s)
+[PathTracer] BVH traced 23889559 rays.
+[PathTracer] Averaged 17.118907 intersection tests per ray.
+[PathTracer] Saving to file: CBbunny_16_8.png... Done!
+[PathTracer] Job completed.
+
+

@@ -65,6 +65,47 @@ BVHNode *BVHAccel::construct_bvh(const std::vector<Primitive*>& prims, size_t ma
   BVHNode *node = new BVHNode(bbox);
 
   node->prims = new vector<Primitive *>(prims);
+  if (prims.size() > max_leaf_size) {
+    double x = centroid_box.extent.x;
+    double y = centroid_box.extent.y;
+    double z = centroid_box.extent.z;
+    vector<Primitive*> l;
+    vector<Primitive*> r;
+    if (x > y && x > z) {
+      double mid = centroid_box.min.x + x * 0.5;
+      for (Primitive *p : prims) {
+        if (p->get_bbox().centroid().x <= mid) {
+          l.push_back(p);
+        }
+        else {
+          r.push_back(p);
+        }
+      }
+    } else if (y > z && y > x) {
+      double mid = centroid_box.min.y + y * 0.5;
+      for (Primitive *p : prims) {
+        if (p->get_bbox().centroid().y <= mid) {
+          l.push_back(p);
+        }
+        else {
+          r.push_back(p);
+        }
+      }
+    } else {
+      double mid = centroid_box.min.z + z * 0.5;
+      for (Primitive *p : prims) {
+        if (p->get_bbox().centroid().z <= mid) {
+          l.push_back(p);
+        }
+        else {
+          r.push_back(p);
+        }
+      }
+    }
+    node->l = construct_bvh(l, max_leaf_size); 
+    node->r = construct_bvh(r, max_leaf_size);
+  }
+  
   return node;
 }
 
@@ -75,11 +116,18 @@ bool BVHAccel::intersect(const Ray& ray, BVHNode *node) const {
   // Take note that this function has a short-circuit that the
   // Intersection version cannot, since it returns as soon as it finds
   // a hit, it doesn't actually have to find the closest hit.
-
-  for (Primitive *p : *(root->prims)) {
-    total_isects++;
-    if (p->intersect(ray)) 
-      return true;
+  double tmp;
+  if (node->bb.intersect(ray, tmp, tmp)) {
+    if (node->isLeaf()) {  
+      for (Primitive *p : *(node->prims)) {
+        total_isects++;
+        if (p->intersect(ray)) 
+          return true;
+      }
+    } else {
+      total_isects++;
+      return intersect(ray, node->l) || intersect(ray, node->r);
+    }
   }
   return false;
 }
@@ -87,14 +135,22 @@ bool BVHAccel::intersect(const Ray& ray, BVHNode *node) const {
 bool BVHAccel::intersect(const Ray& ray, Intersection* i, BVHNode *node) const {
   // TODO (Part 2.3):
   // Fill in the intersect function.
-
-  bool hit = false;
-  for (Primitive *p : *(root->prims)) {
-    total_isects++;
-    if (p->intersect(ray, i)) 
-      hit = true;
+  double tmp;
+  if (node->bb.intersect(ray, tmp, tmp)) {
+    if (node->isLeaf()) {
+      bool intersected = false;  
+      for (Primitive *p : *(node->prims)) {
+        total_isects++;
+        intersected = p->intersect(ray, i) || intersected;
+      }
+      return intersected;
+    } else {
+      total_isects++;
+      bool inter = intersect(ray, i, node->l);
+      return intersect(ray, i, node->r) || inter;
+    }
   }
-  return hit;
+  return false;
 }
 
 }  // namespace StaticScene
