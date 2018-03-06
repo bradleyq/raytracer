@@ -16,41 +16,336 @@
 <body>
 <br />
 <h1 align="middle">Assignment 3: PathTracer</h1>
-    <h2 align="middle">Your Name</h2>
+    <h2 align="middle">Bradley Qu cs184-afx</h2>
 
     <div class="padded">
-        <p>Use this section to write an overview of the assignment. All of the text in your write-up should be <em>in your own words</em>. If you need to add additional HTML features to this document, you can search the <a href="http://www.w3schools.com/">http://www.w3schools.com/</a> website for instructions. To edit the HTML, you can just copy and paste existing chunks and fill in the text and image file names appropriately.</p>
-        <o>The website writeup is intended to be a self-contained walkthrough of the assignment: we want this to be a piece of work which showcases your understanding of relevant concepts through both mesh images as well as written explanations about what you did to complete each part of the assignment. Try to be as clear and organized as possible when writing about your own output files or extensions to the assignment. We want to understand what you've achieved and how you've done it!</p> 
-        <p>If you are well-versed in web development, feel free to ditch this template and make a better looking page. Just make sure that you include all the components as we've laid them out here. </p>
-
+        <p>
+        In this assignment, we build a raytracing system that calculates ray itersections and recursive indirect
+        lighting. It makes use of approximations of inifinte dimension integrals of light to calculate realistic 
+        lighting of a scene. Discretizing continuous integrals is done through weighted averaging of discrete rays 
+        with a ray PDF, BRDF, and application of Lambert's cosine law.
+        </p>
+       
     <h2 align="middle">Part 1: Ray Generation and Intersection</h2>
-        <p>Describe what you did in Part 1. etc...</p>
+        <p>
+        We are assuming a geometric model of light. Thus, determining the lighting of a pixel can be done by casting
+        rays from the camera to light rather than visa versa. This increases efficiency by guaranteeing utility of
+        every raycast. Rays are cast from the camera point, through an image plane, and into the scene.  The pixel 
+        the ray intersects in the image plane is the pixel lighting will be calculated for. To prevent aliasing, many 
+        ray samples are uniformly randomly taken over the area of each pixel. These samples are 
+        averaged to produce the final render output for that pixel. The basic premise of intersection in the scene
+        is to calculate the earliest time (and concequently, distance since rays represented with unit vectors) at which the
+        ray intersects the scene geometry (plane/sphere). This can be done through simple algebra.
+        </p>
+        <p>
+        Explain the triangle intersection algorithm you implemented in your own words.
+        I implemented triangle intersection calculation by utilizing the Moller Trumbore Algorithm. The algorithm
+        efficiently calculates both the intersection time and the barycentric coordinates of the intersection point
+        with respect to the intersecting triangle. This is done by combining repeat calculations and vectorizing the
+        process for easy parallelization. Conceptually, it finds the factor to which me must extend the direction vector
+        of our ray to meet the triangle plane. It then finds relative areas of subtrinagles created by joining the intersection
+        with each triangle vertex. These areas are proportional to the barycentric coordinates. 
+        Once these values are calculated, one can check the sign of the
+        barycentric coordinates. The ray intersects the triangle if time is within range (min and max for that ray) and
+        all three barycentric coordiinates are positiive.
+        </p>
+        <p>
+        Sphere intersection was done by solving the simplified quadratic equation for a ray through a sphere surface. If the
+        quadratic has no real roots, there is no intersection. If there is one, it is a tangent intersection. If there 
+        are two, find the one with the lowest t. That is the intersection. Number of roots can be quickly determined by
+        observing the discriminant of the quadratic. Negative is no roots, 0 is tangent, positive is two roots.
+        </p>
+        
         <div align="center">
-            <table style="width=100%">
+            <table style="width:100%">
                 <tr>
                     <td align="middle">
-                    <img src="images/example_image.png" width="480px" />
-                    <figcaption align="middle">Results Caption: my bunny is the bounciest bunny</figcaption>
+                      <img src="images/spheres_norm.png" width="360px" />
+                      <figcaption align="middle">Spheres normals</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/teapot.png" width="360px" />
+                      <figcaption align="middle">Teapot</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/banana.png" width="360px" />
+                      <figcaption align="middle">Banana</figcaption>
+                    </td>
                 </tr>
             </table>
         </div>
-        <p>Here is an example of how to include a simple formula:</p>
-        <p align="middle"><pre align="middle">a^2 + b^2 = c^2</pre></p>
-        <p>or, alternatively, you can include an SVG image of a LaTex formula.</p>
-        <p>This time it's your job to copy-paste in the rest of the sections :)</p>
+        
+    <h2 align="middle">Part 2: Bounding Volume Heirarchy</h2>
+        <p>
+        My BVH construction is a recursive algorithm that splits the centroid box down the middle of the largest axis.
+        Edge cases (perfectly on midpoint) are put into the "left" branch (lower position values). Recursion stops when
+        a BVH node has less than or equal to the maximum leaf capacity. I chose a centroid box heuristic over a bounding
+        box one because it guarantees at least one element in each child branch while a bounding box cannot. It is still,
+        however, similarly simple to implement.
+        </p>
+        <p>
+        My BVH intersection is also done recursively. Check for intersection. If there is, recurse on left and right
+        children. If the node is a leaf, iterate over the primitives and check for intersections with each. We do not need
+        to worry about finding the closest intersection as dynamically setting <code>max_t</code> variable ensures only the
+        most recent intersection is saved. Bounding box intersection check is done by using the slab method. For
+        each slab, I find the max and min of intersection. The max of the mins is the ray enter time of the bounding 
+        box. The min of the maxes is the exit time. One thing to note is that the ray enter time can be negative and still
+        have valid ray intersections with the geometry in the bounding box.
+        </p>
+        <div align="center">
+            <table style="width:100%">
+                <tr>
+                    <td align="middle">
+                      <img src="images/maxplank.png" width="480px" />
+                      <figcaption align="middle">Who is this guy?</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/dragon.png" width="480px" />
+                      <figcaption align="middle">Dragon</figcaption>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <p>Rendering output for constructing the normal image for cow.dae:</p>
+        <pre>
+          <code>
+no BVH:
+  [PathTracer] Input scene file: ../dae/meshedit/cow.dae
+  [PathTracer] Collecting primitives... Done! (0.0006 sec)
+  [PathTracer] Building BVH from 5856 primitives... Done! (0.0013 sec)
+  [PathTracer] Rendering... 100%! (381.2898s)
+  [PathTracer] BVH traced 480000 rays.
+  [PathTracer] Averaged 5856.000000 intersection tests per ray.
 
+With BVH:
+  [PathTracer] Input scene file: ../dae/meshedit/cow.dae
+  [PathTracer] Collecting primitives... Done! (0.0006 sec)
+  [PathTracer] Building BVH from 5856 primitives... Done! (0.0443 sec)
+  [PathTracer] Rendering... 100%! (1.1945s)
+  [PathTracer] BVH traced 480000 rays.
+  [PathTracer] Averaged 11.890058 intersection tests per ray.
+          </code>
+        </pre>
+        <p>
+        BVH reduces the compute overhead by hundreds of times with a space tradeoff. BVH increases time to test for a ray intersection with a 
+        specific primitive with the advantage of being able to very quickly test for no intersection (using BST). Since each ray intersects very few
+        primitives and misses many, this provides a significant speedup. There is, however, an observable added delay to rendering with BVH as
+        the BVH tree must first be constructed before raycasting in the scene. This means, that BVH has the potential to be slower when it comes 
+        to very low poly scenes. Overall, however, BVH brings great improvement to efficiency. As it brings finding intersections in a scene from
+        <code>O(p)</code> to <code>O(log p)</code> where <code>p</code> is the number of primitives.
+        </p>
 
-
-    <h2 align="middle">A Few Notes On Webpages</h2>
-        <p>Here are a few problems students have encountered in the past. You will probably encounter these problems at some point, so don't wait until right before the deadline to check that everything is working. Test your website on the instructional machines early!</p>
-        <ul>
-        <li>Your main report page should be called index.html.</li>
-        <li>Be sure to include and turn in all of the other files (such as images) that are linked in your report!</li>
-        <li>Use only <em>relative</em> paths to files, such as <pre>"./images/image.jpg"</pre>
-        Do <em>NOT</em> use absolute paths, such as <pre>"/Users/student/Desktop/image.jpg"</pre></li>
-        <li>Pay close attention to your filename extensions. Remember that on UNIX systems (such as the instructional machines), capitalization matters. <pre>.png != .jpeg != .jpg != .JPG</pre>
-        <li>Be sure to adjust the permissions on your files so that they are world readable. For more information on this please see this tutorial: <a href="http://www.grymoire.com/Unix/Permissions.html">http://www.grymoire.com/Unix/Permissions.html</a></li>
-        <li>And again, test your website on the instructional machines early!</li>
+    <h2 align="middle">Part 3: Direct Illumination</h2>
+        <p>
+       Uniform hemisphere sampling was done by uniformly generating outgoing rays from the point being lit. The intersection of the ray is tested 
+       for emmission. The final light on that point is 
+       <pre><code>&Sigma; emission * pdf * bsdf * lambert/ n</code></pre> 
+       Where 'emission' is the
+       light sample from
+       the outgoing ray, 'pdf' is the sampling pdf (this case uniform 1/pi), 'bsdf' is material color, 'lambert' is the cosine law output,'n' is number
+       of rays traced. We do not need to test for the pdf of the light source as that is already reflected in the probability of the outgoing ray 
+       to hit the light source. In my implementation, I put the lambert cosine factor inside the bsdf to reduce clutter.
+       </p>
+       <p>
+       Importance sampling was done by sampling in the direction of light sources. I sum over the area of the light sources and add their light
+       contributions while considering the pdf of the light source. This pdf describes the chance I define for that specific ray of light to 
+       shine in that direction. I take into account obstructions from the test point to the light source by aycasting between them and checking 
+       for any premature intersections. The final light on the point is
+       <pre><code>&Sigma; emission * pdf * bsdf * lambert/ (n * lpdf)</code></pre>
+       The variables carry over from the previous part with an added 'lpdf'. lpdf is exactly the probability described earlier. I divide it
+       becuase sampling more from a location requires that I reduce the weight. Otherwise, the integral of the light will be greater than the
+       total emission.
+       </p>
+        <div align="center">
+            <table style="width:100%">
+                <tr>
+                    <td align="middle">
+                      <img src="images/bunnydirecthemi.png" width="480px" />
+                      <figcaption align="middle">It's a bunny! Uniform hemisphere!</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/spheresdirecthemi.png" width="480px" />
+                      <figcaption align="middle">Spheres. Uniform samples.</figcaption>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="middle">
+                      <img src="images/CBbunny_16_8.png" width="480px" />
+                      <figcaption align="middle">OOOOH! Importance sampling!</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/dragon_64_32.png" width="480px" />
+                      <figcaption align="middle">Dragon with importance sampling.</figcaption>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div align="center">
+            <table style="width:100%">
+                <tr>
+                    <td align="middle">
+                      <img src="images/import1.png" width="240px" />
+                      <figcaption align="middle">Importance 1 light ray</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/import4.png" width="240px" />
+                      <figcaption align="middle">Importance 4 light rays</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/import16.png" width="240px" />
+                      <figcaption align="middle">Importance 16 light rays</figcaption>
+                    </td>
+                    <td align="middle">
+                      <img src="images/import64.png" width="240px" />
+                      <figcaption align="middle">Importance 64 light rays</figcaption>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        
+        <p>
+        Number of light rays greatly affects the harshness of soft shadows. Lower light ray count cannot properly reflect gradients in shading and 
+        shadows. Only up to 64 light rays for a sample does that sample semi-accurately represent the shadowing of that point. This concept is especially
+        prevalent in the one ray image. A point is either shadowed or not. Thus, there are no intermediates in the shadows.
+        </p>
+        <p>
+        Uniform hemisphere sampling is basic and intuitive. That, however, is all that it is good for. It is horribly inefficient for direct 
+        lighting as the probability that a light probe ray actually hits a light source is slim. Thus, it takes many samples and light rays to construct even
+        a moderately sufficient image. Light importance sampling fixes the flaws of uniform sampling. It is more sample efficient as the
+        light samples contribute more the the image since they are trained toward light sources. The only downside is that it requires a predefined
+        pdf to sample in. This pdf has to either be procedurally generated or inputted by the user.
+        </p>
+    <h2 align="middle">Part 4: Global Illumination</h2>
+        <p>
+       Indirect lighting was done through a recursive function. The function first calculates the direct lighting at the point.
+       Then, it traces light rays to other points on the scene and adds decayed <code>L_out</code> from recursive calls on
+       the light ray intersection points. The total light is
+       <pre>
+         <code>
+           &Sigma; directlight +  recursivelight * pdf * bsdf * lambert/ (lpdf * p)
+         </code>
+       </pre>
+       Variables are similar to previous formulas. 'p' is the continuation probability of the ray. There was casework for 
+       death of the ray. The light ray has a 0.7 continuoation rate or 0.3 termination rate. I also 
+       made sure that at least one bounce is calculated when the max bounce threshold is above 1. Termination always means
+       adding pure black as 'recursivelight'.
+       </p>
+        <div align="center">
+          <table style="width:100%">
+            <tr>
+              <td align="middle">
+                <img src="images/directbunny.png" width="480px" />
+                <figcaption align="middle">It's mr. bunny! Direct light.</figcaption>
+              </td>
+              <td align="middle">
+                <img src="images/s1024direct.png" width="480px" />
+                <figcaption align="middle">Spheres. Direct light.</figcaption>
+              </td>
+            </tr>
+            <tr>
+              <td align="middle">
+                <img src="images/indirectbunny.png" width="480px" />
+                <figcaption align="middle">OOOOH! Beautiful! Indirect light!</figcaption>
+              </td>
+              <td align="middle">
+                <img src="images/s1024.png" width="480px" />
+                <figcaption align="middle">Spheres with indirect lighting.</figcaption>
+              </td>
+            </tr>
+            <tr>
+                <td align="middle">
+                  <img src="images/directonlybunny.png" width="480px" />
+                  <figcaption align="middle">Bunny with only direct light.</figcaption>
+                </td>
+                <td align="middle">
+                  <img src="images/indirectonlybunny.png" width="480px" />
+                  <figcaption align="middle">Bunny with only indirect light. (ignore the area light)</figcaption>
+                </td>
+            </tr>
+          </table>
+          <table style="width:100%">
+            <tr>
+              <td align="middle">
+                  <img src="images/m0.png" width="240px" />
+                  <figcaption align="middle">m=0</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/m1.png" width="240px" />
+                  <figcaption align="middle">m=1</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/m2.png" width="240px" />
+                  <figcaption align="middle">m=2</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/m3.png" width="240px" />
+                  <figcaption align="middle">m=3</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/m100.png" width="240px" />
+                  <figcaption align="middle">m=100</figcaption>
+              </td>
+            </tr>
+          </table>
+          <table style="width:100%">
+            <tr>
+              <td align="middle">
+                  <img src="images/s1.png" width="240px" />
+                  <figcaption align="middle">s=1</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/s2.png" width="240px" />
+                  <figcaption align="middle">s=2</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/s4.png" width="240px" />
+                  <figcaption align="middle">s=4</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/s8.png" width="240px" />
+                  <figcaption align="middle">s=8</figcaption>
+              </td>
+            </tr>
+             <tr>
+              <td align="middle">
+                  <img src="images/s16.png" width="240px" />
+                  <figcaption align="middle">s=16</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/s64.png" width="240px" />
+                  <figcaption align="middle">s=64</figcaption>
+              </td>
+              <td align="middle">
+                  <img src="images/s1024.png" width="240px" />
+                  <figcaption align="middle">s=1024</figcaption>
+              </td>
+              </td>
+            </tr>
+          </table>
+        </div>
+    <h2 align="middle">Part 5: Adaptive Sampling</h2>
+        <p>
+          Adaptive sampling was simple to implement. I first made sure to simplify the threshold check equation to minimize
+          square root and division operations. I then used modular arithmetic to split samples int blocks with a tail case
+          for any leftovers. I also had to manage scaling the samples as the number of samples was now variable. I avoided
+          losing too much precision by dividing by block size. When total count is determined (threshold is reached) I 
+          divide again by the number of blocks that I got through. Tail case and updating counts was handled accordingly.
+        </p>
+        <p>Behold, the beautiful adaptive sampling!</p>
+        <div align="center">
+          <table style="width:100%">
+              <tr>
+                <td align="middle">
+                  <img src="images/bunnyadaptive.png" width="480px" />
+                  <figcaption align="middle">Guess who's back? Back again?</figcaption>
+                </td>
+                <td align="middle">
+                  <img src="images/bunny_rate.png" width="480px" />
+                  <figcaption align="middle">Bunny's back! Tell a friend!</figcaption>
+                </td>
+              </tr>
+            </table>
+        </div>
 </div>
 </body>
 </html>
